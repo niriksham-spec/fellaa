@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#00797d">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Fella Ride · Community Activation</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{
+    --bg:#ffffff; --panel:#ffffff; --panel2:#f3fbfb; --line:#d3ebeb;
+    --text:#0a3d42; --muted:#4f7f84;
+    --a:#00797d; --b:#0aa5ab; --dark:#00595c;
+    --ok:#0d8f74; --warn:#b77900; --bad:#d13b64;
+    --pink:#e5488a; --pinkbg:#fde8f2;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(900px 500px at 0% -10%, #00797d14, transparent 60%),
+      radial-gradient(800px 500px at 110% 0%, #0aa5ab10, transparent 60%),
+      var(--bg);
+  }
+  #app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+  #app.splash-mode{display:block}
+  aside{
+    position:sticky; top:0; height:100vh; padding:24px 16px;
+    display:flex; flex-direction:column; color:#fff;
+    background:linear-gradient(180deg,#00595c,#00797d);
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px}
+  .logo{
+    width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:19px;
+    background:#ffffff;box-shadow:0 10px 30px #00000033;
+  }
+  .sub{color:#b9e6e7;font-size:12px;margin:6px 0 26px}
+  nav{display:flex;flex-direction:column;gap:6px}
+  .nav-btn{
+    all:unset; cursor:pointer; padding:11px 14px; border-radius:12px; font-size:14px;
+    color:#c9efef; display:flex; align-items:center; gap:10px; transition:.2s;
+  }
+  .nav-btn:hover{background:#ffffff1f;color:#fff}
+  .nav-btn.on{background:#ffffff2e;color:#fff;box-shadow:inset 3px 0 0 #fff}
+  .me-card{margin-top:auto;background:#ffffff14;border:1px solid #ffffff33;border-radius:14px;padding:14px;font-size:13px}
+  main{padding:28px 34px;overflow:auto}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.3px;color:var(--dark)}
+  h3{margin:0 0 12px;font-size:17px;color:var(--dark)}
+  .lead{color:var(--muted);margin:0 0 24px}
+  .muted{color:var(--muted);font-size:13px}
+  .cols{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .card{
+    background:linear-gradient(180deg,#ffffff,var(--panel2));
+    border:1px solid var(--line); border-radius:18px; padding:20px;
+    box-shadow:0 12px 30px #00797d14; transition:transform .2s,border-color .2s;
+  }
+  .card:hover{border-color:#8fd3d5;transform:translateY(-2px)}
+  .card.pinkride{border-color:#f2a7c6;background:linear-gradient(180deg,#ffffff,var(--pinkbg))}
+  .stat .n{font-size:30px;font-weight:800;color:var(--dark)}
+  .stat .l{color:var(--muted);font-size:13px;margin-top:4px}
+  .hero{background:linear-gradient(120deg,#00797d,#0aa5ab);border-color:#00797d;color:#fff}
+  .hero:hover{transform:none}
+  .hero h2{margin:8px 0 6px;font-size:26px}
+  .hero .muted,.hero p{color:#e3fafa}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#e6f5f5;color:#3d6e73;white-space:nowrap}
+  .pill.ok{background:#d7f5ec;color:var(--ok)}
+  .pill.warn{background:#fdf1d6;color:var(--warn)}
+  .pill.bad{background:#fde0e7;color:var(--bad)}
+  .pill.hot{background:#d4f1f1;color:var(--dark)}
+  .pill.pink{background:var(--pinkbg);color:#b8336e}
+  .btn{
+    all:unset; display:inline-block; cursor:pointer; text-align:center; padding:10px 16px; border-radius:12px;
+    background:linear-gradient(135deg,var(--a),var(--b)); color:#fff; font-weight:600; font-size:14px;
+    box-shadow:0 8px 20px #00797d44; transition:.2s;
+  }
+  .btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
+  .btn.ghost{background:#fff;border:1px solid var(--line);box-shadow:none;color:var(--dark)}
+  .btn.ghost:hover{border-color:var(--a)}
+  .hero .btn{background:#fff;color:var(--dark);box-shadow:none}
+  .hero .btn.ghost{background:#ffffff22;color:#fff;border:1px solid #ffffff66}
+  .bar{height:8px;background:#e1f3f3;border-radius:99px;overflow:hidden}
+  .bar>span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--a),var(--b));transition:width .6s}
+  .frow{display:flex;justify-content:space-between;font-size:14px;margin-top:16px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .chip{all:unset;cursor:pointer;padding:7px 14px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--muted);font-size:13px}
+  .chip.on{background:var(--a);color:#fff;border-color:var(--a)}
+  .form{display:grid;gap:12px}
+  label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
+  input,select,textarea{
+    width:100%; background:#fff; border:1px solid var(--line); color:var(--text);
+    padding:10px 12px; border-radius:10px; font:inherit; font-size:14px;
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid #00797d55;border-color:var(--a)}
+  .check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text)}
+  .check input{width:auto}
+  .code{background:#f3fbfb;border:1px dashed #8fd3d5;padding:10px 12px;border-radius:12px;margin-top:12px;font-size:14px;word-break:break-all}
+  .big{font-size:28px;font-weight:800;letter-spacing:4px;margin:10px 0}
+  .checkin{display:flex;gap:8px;margin-top:12px}
+  .checkin input{max-width:170px}
+  .irow{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+  .note{color:var(--muted);border-style:dashed}
+  .toast{
+    position:fixed; right:24px; bottom:24px; max-width:360px; padding:14px 18px; border-radius:14px;
+    background:var(--dark); color:#fff; box-shadow:0 20px 50px #00595c55; animation:pop .3s ease; z-index:60;
+  }
+  @keyframes pop{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+  .errbox{margin:24px;padding:20px;border-radius:14px;background:#fde0e7;color:#8a1538;font-family:monospace;white-space:pre-wrap;word-break:break-word}
+
+  /* Map */
+  #map{height:480px;border-radius:14px;z-index:1}
+  .car{
+    width:30px;height:30px;line-height:28px;text-align:center;font-size:16px;background:#fff;
+    border:2px solid var(--a);border-radius:50%;box-shadow:0 2px 6px #00000033;
+  }
+  .car.pink{border-color:var(--pink)}
+  .car.mine{border-color:var(--dark);box-shadow:0 0 0 4px #00797d44}
+  .you-dot{width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 4px #2563eb44}
+  .avail-item{padding:12px 0;border-bottom:1px solid var(--line)}
+  .avail-item:last-child{border-bottom:none}
+
+  /* Gift box */
+  .gift-overlay{
+    position:fixed; inset:0; background:#00595ccc; display:grid; place-items:center;
+    z-index:50; padding:20px; animation:fade .3s ease both;
+  }
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .gift-modal{
+    background:#fff; border-radius:22px; padding:30px 28px; max-width:380px; width:100%;
+    text-align:center; box-shadow:0 30px 80px #00000055; animation:giftPop .7s cubic-bezier(.2,1.6,.4,1) both;
+  }
+  .gift-modal h2{margin:14px 0 8px;color:var(--dark);font-size:22px}
+  .gift-modal p{color:var(--muted);margin:0 0 18px}
+  @keyframes giftPop{from{transform:scale(.3) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+  .gift{position:relative;width:130px;height:120px;margin:0 auto;animation:wobble 2.4s ease-in-out .8s infinite}
+  @keyframes wobble{0%,100%{transform:rotate(0)}15%{transform:rotate(-6deg)}30%{transform:rotate(6deg)}45%{transform:rotate(-4deg)}60%{transform:rotate(0)}}
+  .gift .body{position:absolute;bottom:0;left:0;right:0;height:80px;background:linear-gradient(160deg,#0aa5ab,#00797d);border-radius:8px}
+  .gift .lid{position:absolute;top:26px;left:-6px;right:-6px;height:26px;background:linear-gradient(160deg,#16b5bb,#00797d);border-radius:6px}
+  .gift .ribbon{position:absolute;left:50%;top:26px;bottom:0;width:14px;margin-left:-7px;background:var(--pink)}
+  .gift .bow{position:absolute;top:0;left:50%;width:44px;height:30px;margin-left:-22px;border:7px solid var(--pink);border-bottom:none;border-radius:50% 50% 0 0}
+
+  @media (max-width:820px){
+    #app{grid-template-columns:1fr}
+    aside{position:static;height:auto}
+    main{padding:20px 16px}
+  }
+
+  /* Splash */
+  .splash{
+    min-height:100vh;display:grid;place-items:center;padding:28px;text-align:center;color:#fff;
+    background:linear-gradient(160deg,#00595c,#00797d 55%,#0aa5ab);
+  }
+  .splash-inner{width:100%;max-width:560px;animation:rise .9s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+  .hero-svg{width:100%;max-width:520px;height:auto;filter:drop-shadow(0 0 28px #ffffff55)}
+  .wl,.wr{transform-box:view-box;transform-origin:200px 150px;animation:flap 1.8s ease-in-out infinite}
+  @keyframes flap{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.42)}}
+  .flow{stroke-dasharray:6 8;animation:flow 2.2s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-28}}
+  .pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.8);opacity:0}}
+  .splash-title{font-size:46px;font-weight:900;letter-spacing:-1px;margin:4px 0 6px;color:#fff}
+  .splash-sub{color:#d8f5f5;margin:0 0 6px;font-size:16px}
+  .splash-btn{font-size:16px;padding:14px 28px;margin-top:16px;background:#fff;color:var(--dark);box-shadow:none}
+  @media (max-width:820px){ .splash-title{font-size:36px} }
+</style>
+</head>
+<body>
+<div id="app"><div class="errbox" id="boot">Loading Fella Ride…</div></div>
+
+<script>
+// Show any hidden script error on the screen instead of a blank page
+window.addEventListener('error', e => {
+  const box = document.getElementById('boot') || document.getElementById('app');
+  if (box) box.innerHTML = '<div class="errbox">Something went wrong:\n' + esc(e.message) + '\n(line ' + e.lineno + ')</div>';
+});
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ---------- Constants ----------
+const KEY = 'fellaride-demo-v2';
+const AREAS = ['North Gate', 'Tech Park', 'Old Town', 'Lake Side', 'Station Road'];
+const TIMES = ['07:30', '08:00', '08:30', '09:00', '17:30', '18:00'];
+const AIR_TIMES = ['04:30', '06:00', '09:30', '13:00', '18:00', '21:30'];
+const FARE = 1200;
+const GIFT_EVERY = 50;
+const FIRST = ['Aarav','Diya','Rohan','Meera','Kabir','Ananya','Vikram','Isha','Arjun','Priya',
+               'Neel','Tara','Samar','Kavya','Dev','Riya','Ishaan','Maya','Yash','Sara',
+               'Om','Leela','Karan','Nisha','Rahul','Zoya','Veer','Anika','Tej','Mira'];
+const LAST = ['S.', 'K.', 'M.', 'R.', 'P.', 'D.', 'J.', 'B.'];
+const ROLE = { driver: 'Driver', passenger: 'Passenger', connector: 'Connector' };
+const TYPE = { post_ride: 'Post a ride', find_ride: 'Find a ride', connect: 'Connect', invite: 'Invite' };
+const FILTERS = ['all', 'Activate now', 'Nudge', 'Dormant', 'Active'];
+
+// Map settings. CAMPUS is the destination. Change these to your campus coordinates.
+const CAMPUS = [12.9716, 77.5946];
+const ROUTE_MIN = 20;
+const AREA_OFFSET = {
+  'North Gate':   [ 0.012,  0.000],
+  'Tech Park':    [ 0.006,  0.012],
+  'Old Town':     [-0.008, -0.010],
+  'Lake Side':    [-0.010,  0.008],
+  'Station Road': [ 0.002, -0.014],
+};
+
+// ---------- State ----------
+let state = load() || seed();
+let view = 'dashboard';
+let filter = 'all';
+let toastMsg = '';
+let toastTimer = null;
+let showSplash = true;
+let giftOpen = false;
+let mapInstance = null;
+let rideLayer = null;
+let userLL = null;
+
+// ---------- Storage ----------
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || !Array.isArray(s.members) || !s.tenant) return null;
+    s.airport = s.airport || { pools: [] };
+    s.airport.pools = Array.isArray(s.airport.pools) ? s.airport.pools : [];
+    s.streak = s.streak || { current: 0, best: 0, last: null };
+    s.myRides = Array.isArray(s.myRides) ? s.myRides : [];
+    s.giftClaims = s.giftClaims || 0;
+    s.freeCredits = s.freeCredits || 0;
+    s.interventions = Array.isArray(s.interventions) ? s.interventions : [];
+    s.rides = Array.isArray(s.rides) ? s.rides : [];
+    return s;
+  } catch (e) { return null; }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
+}
+
+// ---------- Synthetic seed data (deterministic) ----------
+function rng(s0) {
+  let s = s0 >>> 0;
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+}
+function seed() {
+  const r = rng(26);
+  const roles = ['driver', 'passenger', 'passenger', 'passenger', 'connector'];
+  const members = [];
+  for (let i = 0; i < 24; i++) {
+    const v = r();
+    members.push({
+      id: 'm' + i,
+      name: FIRST[i] + ' ' + LAST[i % LAST.length],
+      synthetic: true,
+      role: roles[Math.floor(r() * roles.length)],
+      area: AREAS[Math.floor(r() * AREAS.length)],
+      time: TIMES[Math.floor(r() * TIMES.length)],
+      age: 19 + Math.floor(r() * 30),
+      gender: ['Female', 'Male', 'Non-binary'][Math.floor(r() * 3)],
+      prefWomen: false,
+      bio: 'Commutes to campus. Open to sharing rides.',
+      phoneVerified: v > 0.35,
+      emailVerified: v > 0.2,
+      lastActive: Math.floor(r() * 14),
+      referredBy: null,
+    });
+  }
+  members.forEach((m, i) => { m.prefWomen = m.gender === 'Female' && m.role === 'passenger' && i % 3 === 0; });
+  const rides = [];
+  members.filter(m => m.role === 'driver' && r() > 0.4).forEach((d, i) => {
+    rides.push({ id: 'r' + i, driverId: d.id, area: d.area, time: d.time, seats: 3, pink: false, booked: [], checkedIn: [] });
+  });
+  members.filter(m => m.role === 'passenger').forEach(p => {
+    const ride = rides.find(x => x.area === p.area && x.time === p.time && x.booked.length < x.seats);
+    if (ride && r() > 0.5) ride.booked.push(p.id);
+  });
+  members[3].referredBy = 'm0';
+  members[7].referredBy = 'm0';
+  members[12].referredBy = 'm5';
+  members[18].referredBy = 'm5';
+  return {
+    tenant: { name: 'Riverside University (demo)', code: 'RIVER26' },
+    members, rides, interventions: [],
+    airport: {
+      pools: [
+        { id: 'p1', direction: 'to', time: '06:00', members: ['m2', 'm9', 'm14'] },
+        { id: 'p2', direction: 'from', time: '18:00', members: ['m5', 'm11'] },
+      ],
+    },
+    streak: { current: 0, best: 0, last: null },
+    myRides: [],
+    giftClaims: 0,
+    freeCredits: 0,
+  };
+}
+
+// ---------- Helpers ----------
+const me = () => state.members.find(m => m.id === 'me');
+const byId = id => state.members.find(m => m.id === id);
+const driverOf = r => r.driverId === 'me' ? me() : byId(r.driverId);
+const mins = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const codeOf = m => 'FR-' + m.id.toUpperCase();
+const verification = m => (m.phoneVerified && m.emailVerified) ? 'verified' : (m.phoneVerified || m.emailVerified) ? 'pending' : 'unverified';
+const seatsLeft = r => r.seats - r.booked.length;
+const hasRide = id => state.rides.some(r => r.driverId === id || r.booked.includes(id));
+const canJoin = (m, r) => m.area === r.area && Math.abs(mins(m.time) - mins(r.time)) <= 30;
+const dayKey = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const yesterdayKey = () => dayKey(new Date(Date.now() - 864e5));
+
+function compatible(a, b) {
+  if (!a || !b || a.id === b.id || a.area !== b.area) return false;
+  if (Math.abs(mins(a.time) - mins(b.time)) > 30) return false;
+  if (a.prefWomen && b.role === 'driver' && b.gender !== 'Female') return false;
+  if (b.prefWomen && a.role === 'driver' && a.gender !== 'Female') return false;
+  if (a.role === 'connector' || b.role === 'connector') return true;
+  return a.role !== b.role;
+}
+function matchesOf(m) { return state.members.filter(o => compatible(m, o)); }
+
+function scoreOf(m) {
+  let s = m.role === 'driver' ? 30 : m.role === 'connector' ? 25 : 15;
+  const v = verification(m);
+  s += v === 'verified' ? 15 : v === 'pending' ? 7 : 0;
+  s += Math.min(matchesOf(m).length, 5) * 6;
+  if (m.lastActive <= 3) s += 10;
+  return Math.min(100, s);
+}
+function tierOf(m) {
+  if (hasRide(m.id)) return 'Active';
+  const s = scoreOf(m);
+  return s >= 60 ? 'Activate now' : s >= 40 ? 'Nudge' : 'Dormant';
+}
+function pickupCode(rideId, memberId) {
+  let h = 0;
+  for (const ch of rideId + memberId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return String(1000 + (h % 9000));
+}
+
+function currentStreak() {
+  const st = state.streak;
+  if (!st.last) return 0;
+  return (st.last === dayKey() || st.last === yesterdayKey()) ? st.current : 0;
+}
+function logRide() {
+  state.myRides.push(Date.now());
+  const today = dayKey(), st = state.streak;
+  if (st.last !== today) {
+    st.current = st.last === yesterdayKey() ? st.current + 1 : 1;
+    st.last = today;
+    st.best = Math.max(st.best, st.current);
+  }
+  const milestone = state.myRides.length % GIFT_EVERY === 0;
+  if (milestone) giftOpen = true;
+  return milestone;
+}
+function consumeCredit() {
+  if (state.freeCredits > 0) { state.freeCredits--; return true; }
+  return false;
+}
+
+// ---------- Map helpers ----------
+const strHash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h / 4294967296; };
+const areaLL = a => [CAMPUS[0] + AREA_OFFSET[a][0], CAMPUS[1] + AREA_OFFSET[a][1]];
+const rideProgress = r => ((Date.now() / 60000) / ROUTE_MIN + strHash(r.id)) % 1;
+function ridePos(r) {
+  const a = areaLL(r.area), t = rideProgress(r);
+  return [a[0] + (CAMPUS[0] - a[0]) * t, a[1] + (CAMPUS[1] - a[1]) * t];
+}
+function etaMin(r) { return Math.max(1, Math.ceil((1 - rideProgress(r)) * ROUTE_MIN)); }
+
+const header = (t, l) => `<h1>${t}</h1><p class="lead">${l}</p>`;
+const note = t => `<section class="card note">${esc(t)}</section>`;
+const statCard = (n, l) => `<section class="card stat"><div class="n">${n}</div><div class="l">${l}</div></section>`;
+const tierPill = t => `<span class="pill ${t === 'Activate now' ? 'hot' : t === 'Nudge' ? 'warn' : t === 'Active' ? 'ok' : ''}">${t}</span>`;
+const verifPill = m => {
+  const v = verification(m);
+  const label = v === 'verified' ? 'Verified' : v === 'pending' ? 'Half verified' : 'Unverified';
+  return `<span class="pill ${v === 'verified' ? 'ok' : v === 'pending' ? 'warn' : 'bad'}">${label}</span>`;
+};
+
+// ---------- Activation engine ----------
+function makeIntervention(m) {
+  const matches = matchesOf(m);
+  let type, message;
+  if (m.role === 'driver') {
+    type = 'post_ride';
+    message = `${matches.length} commuters from ${m.area} leave around ${m.time}. Post a ride to fill your seats.`;
+  } else if (m.role === 'connector') {
+    type = 'connect';
+    message = `Introduce ${m.area} members to each other and start a ride group.`;
+  } else if (matches.length) {
+    type = 'find_ride';
+    message = `${matches.length} possible rides from ${m.area} around ${m.time}. Request a seat.`;
+  } else {
+    type = 'invite';
+    message = `No rides from ${m.area} yet. Invite a neighbour to start one.`;
+  }
+  return {
+    id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    memberId: m.id, type, message, status: 'draft', createdAt: Date.now(),
+  };
+}
+function generateInterventions() {
+  let created = 0;
+  state.members.forEach(m => {
+    const t = tierOf(m);
+    if (t === 'Active' || t === 'Dormant') return;
+    if (state.interventions.some(i => i.memberId === m.id && i.status !== 'converted')) return;
+    state.interventions.push(makeIntervention(m));
+    created++;
+  });
+  return created;
+}
+function nudge(memberId) {
+  const m = byId(memberId);
+  if (!m) return;
+  let i = state.interventions.find(x => x.memberId === memberId && x.status === 'draft');
+  if (!i) { i = makeIntervention(m); state.interventions.push(i); }
+  i.status = 'sent';
+  i.sentAt = Date.now();
+  flash('Nudge sent to ' + m.name);
+}
+function markSent(id) {
+  const i = state.interventions.find(x => x.id === id);
+  if (i && i.status === 'draft') { i.status = 'sent'; i.sentAt = Date.now(); flash('Intervention marked as sent'); }
+}
+function syncConversions() {
+  state.interventions.forEach(i => {
+    if (i.status === 'sent' && hasRide(i.memberId)) i.status = 'converted';
+  });
+}
+
+// ---------- Community actions ----------
+function joinCommunity(fd) {
+  if (me()) return flash('You have already joined.');
+  const code = String(fd.get('code') || '').trim().toUpperCase();
+  if (code !== state.tenant.code) return flash('Community code not recognised. Try ' + state.tenant.code + '.');
+  const refCode = String(fd.get('referral') || '').trim().toUpperCase();
+  const referrer = refCode ? state.members.find(m => codeOf(m) === refCode) : null;
+  const name = String(fd.get('name') || '').trim();
+  const gender = String(fd.get('gender'));
+  const role = String(fd.get('role'));
+  state.members.push({
+    id: 'me', name: name || 'New member', synthetic: false,
+    role, area: String(fd.get('area')), time: String(fd.get('time')),
+    age: Number(fd.get('age')) || null, gender,
+    prefWomen: gender === 'Female' && role === 'passenger' && fd.get('prefWomen') === 'on',
+    bio: String(fd.get('bio') || '').trim(),
+    phoneVerified: false, emailVerified: false, lastActive: 0,
+    referredBy: referrer ? referrer.id : null,
+  });
+  flash('Welcome to ' + state.tenant.name + '!');
+}
+function verify(kind) {
+  const m = me();
+  if (!m) return;
+  if (kind === 'phone') m.phoneVerified = true; else m.emailVerified = true;
+  flash(kind === 'phone' ? 'Phone verified (demo OTP accepted)' : 'Email verified (demo link clicked)');
+}
+function postRide(fd) {
+  const m = me();
+  if (!m) return flash('Join the community first.');
+  if (m.role !== 'driver') return flash('Only drivers can post rides.');
+  if (verification(m) !== 'verified') return flash('Verify your phone and email before posting a ride.');
+  const seats = Math.min(4, Math.max(1, Number(fd.get('seats')) || 1));
+  const pink = fd.get('type') === 'pink' && m.gender === 'Female';
+  state.rides.push({
+    id: 'r' + Date.now().toString(36), driverId: 'me',
+    area: String(fd.get('area')), time: String(fd.get('time')),
+    seats, pink, booked: [], checkedIn: [],
+  });
+  const milestone = logRide();
+  flash((pink ? 'Pink ride posted. Women passengers nearby can now request seats.' : 'Ride posted. Nearby members can now request seats.') +
+        (milestone ? ' 🎁 Milestone reached!' : ''));
+}
+function canBookReason(m, r) {
+  if (!m) return 'Join the community first.';
+  if (m.role === 'driver') return 'Drivers cannot book seats.';
+  if (r.driverId === 'me') return 'This is your own ride.';
+  if (r.booked.includes(m.id)) return 'You already have a seat on this ride.';
+  if (verification(m) !== 'verified') return 'Verify your phone and email before booking.';
+  if (seatsLeft(r) <= 0) return 'No seats left on this ride.';
+  if (!canJoin(m, r)) return 'This ride does not match your area or time.';
+  if (r.pink && m.gender !== 'Female') return 'Pink rides are for women passengers.';
+  const d = driverOf(r);
+  if (m.prefWomen && d && d.gender !== 'Female') return 'You chose women drivers only.';
+  return null;
+}
+function bookRide(rideId) {
+  const m = me();
+  const r = state.rides.find(x => x.id === rideId);
+  if (!m || !r) return;
+  const why = canBookReason(m, r);
+  if (why) return flash(why);
+  r.booked.push('me');
+  const milestone = logRide();
+  flash('Seat booked. Your pickup code is ' + pickupCode(r.id, 'me') + (milestone ? ' 🎁 Milestone reached!' : ''));
+}
+function checkIn(rideId, code) {
+  const r = state.rides.find(x => x.id === rideId);
+  if (!r) return;
+  const pid = r.booked.find(id => pickupCode(r.id, id) === String(code || '').trim());
+  if (!pid) return flash('That code does not match a booked passenger.');
+  if (r.checkedIn.includes(pid)) return flash('That passenger is already checked in.');
+  r.checkedIn.push(pid);
+  const fully = r.checkedIn.length === r.booked.length;
+  flash(byId(pid).name + ' checked in. Ride is ' + (fully ? 'fully boarded.' : 'in progress.'));
+}
+function demoRide() {
+  if (!me()) return flash('Join the community first.');
+  const before = currentStreak();
+  const milestone = logRide();
+  const after = currentStreak();
+  const parts = ['Demo ride logged.'];
+  if (after > before) parts.push('🔥 ' + after + '-day streak!');
+  if (milestone) parts.push('🎁 Milestone reached. Open your gift.');
+  flash(parts.join(' '));
+}
+function claimGift() {
+  const rounds = Math.floor(state.myRides.length / GIFT_EVERY);
+  if (rounds > state.giftClaims) {
+    state.giftClaims++;
+    state.freeCredits++;
+    flash('Free ride unlocked! It will waive your fare on your next airport ride.');
+  }
+  giftOpen = false;
+}
+function simulateReferral() {
+  const m = me();
+  if (!m) return flash('Join the community first.');
+  const n = state.members.filter(x => x.referredBy === 'me').length + 1;
+  state.members.push({
+    id: 'd' + Date.now().toString(36), name: 'Neighbour ' + n + ' (demo)', synthetic: true,
+    role: 'passenger', area: m.area, time: m.time, age: 21, gender: 'Non-binary', prefWomen: false,
+    bio: 'Joined through a referral.', phoneVerified: false, emailVerified: false,
+    lastActive: 0, referredBy: 'me',
+  });
+  flash('A neighbour joined with your code. Referral counted.');
+}
+async function copyCode() {
+  const m = me();
+  if (!m) return;
+  try {
+    await navigator.clipboard.writeText(codeOf(m));
+    flash('Copied ' + codeOf(m));
+  } catch (e) {
+    flash('Your code is ' + codeOf(m));
+  }
+}
+
+// ---------- Airport pooling ----------
+function inAnyPool(id) { return state.airport.pools.some(p => p.members.includes(id)); }
+function airportPoolFor(direction, time) {
+  return state.airport.pools.find(p =>
+    p.direction === direction && Math.abs(mins(p.time) - mins(time)) <= 60 && p.members.length < 4);
+}
+function requestAirport(fd) {
+  const m = me();
+  if (!m) return flash('Join the community first.');
+  if (verification(m) !== 'verified') return flash('Verify your phone and email before booking an airport ride.');
+  if (inAnyPool('me')) return flash('You are already in an airport pool. Leave it first.');
+  const direction = String(fd.get('direction')) === 'from' ? 'from' : 'to';
+  const time = String(fd.get('time'));
+  const free = consumeCredit();
+  const prefix = free ? 'Free ride credit used, your fare is ₹0. ' : '';
+  const pool = airportPoolFor(direction, time);
+  if (pool) {
+    pool.members.push('me');
+    flash(prefix + 'Matched into a pool of ' + pool.members.length + '. Your share is ₹' + Math.round(FARE / pool.members.length) + '.');
+  } else {
+    state.airport.pools.push({ id: 'p' + Date.now().toString(36), direction, time, members: ['me'] });
+    flash(prefix + 'New airport pool created. Others can join within one hour.');
+  }
+  logRide();
+}
+function joinPool(id) {
+  const m = me();
+  if (!m) return;
+  if (verification(m) !== 'verified') return flash('Verify your phone and email first.');
+  if (inAnyPool('me')) return flash('Leave your current pool first.');
+  const p = state.airport.pools.find(x => x.id === id);
+  if (!p || p.members.length >= 4) return flash('This pool is full.');
+  p.members.push('me');
+  logRide();
+  flash('Joined the pool. Your share is ₹' + Math.round(FARE / p.members.length) + '.');
+}
+function leavePool() {
+  state.airport.pools.forEach(p => { p.members = p.members.filter(x => x !== 'me'); });
+  state.airport.pools = state.airport.pools.filter(p => p.members.length > 0);
+  flash('You left your airport pool.');
+}
+
+// ---------- Feedback & rendering ----------
+function flash(msg) {
+  toastMsg = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastMsg = ''; render(); }, 2600);
+  render();
+}
+function commit() {
+  syncConversions();
+  save();
+  render();
+}
+
+function butterflySVG() {
+  const people = [[60, 70, 'A'], [340, 70, 'D'], [60, 230, 'R'], [340, 230, 'M'], [34, 150, 'K'], [366, 150, 'T']];
+  const routes = [
+    'M60 70 Q200 10 200 150', 'M340 70 Q200 10 200 150',
+    'M60 230 Q200 290 200 150', 'M340 230 Q200 290 200 150',
+    'M34 150 Q120 150 200 150', 'M366 150 Q280 150 200 150',
+  ];
+  const flows = routes.map(d =>
+    `<path class="flow" d="${d}" fill="none" stroke="#d6fafa" stroke-opacity=".7" stroke-width="1.6"/>`).join('');
+  const nodes = people.map(([x, y, l]) => `
+    <circle class="pulse" cx="${x}" cy="${y}" r="16" fill="none" stroke="#ffffff"/>
+    <circle cx="${x}" cy="${y}" r="15" fill="#00595c" stroke="#ffffff" stroke-width="2"/>
+    <text x="${x}" y="${y + 1}" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="700" fill="#ffffff">${l}</text>`).join('');
+  const cars = [
+    ['M60 70 Q200 10 200 150', 5, '#ffffff'],
+    ['M340 70 Q200 10 200 150', 6, '#9ff5f5'],
+    ['M200 150 Q200 290 340 230', 4, '#ffd1e3'],
+    ['M200 150 Q200 290 60 230', 7, '#ffffff'],
+    ['M366 150 Q280 150 200 150', 5.5, '#9ff5f5'],
+  ].map(([d, dur, c]) => `
+    <g>
+      <rect x="-8" y="-4" width="16" height="8" rx="3" fill="${c}"/>
+      <animateMotion dur="${dur}s" repeatCount="indefinite" path="${d}"/>
+    </g>`).join('');
+  return `
+  <svg class="hero-svg" viewBox="0 0 400 300" aria-hidden="true">
+    <defs>
+      <linearGradient id="wing" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#7fe6e8"/>
+      </linearGradient>
+      <g id="wingShape">
+        <path d="M200 150 C150 60 60 50 80 115 C100 165 160 160 200 150 Z" fill="url(#wing)" opacity=".95"/>
+        <path d="M200 150 C160 170 110 200 130 232 C150 258 186 205 200 150 Z" fill="url(#wing)" opacity=".8"/>
+        <circle cx="120" cy="105" r="9" fill="#00797d" opacity=".3"/>
+      </g>
+    </defs>
+    ${flows}
+    ${nodes}
+    <g class="wl"><use href="#wingShape"/></g>
+    <g class="wr"><use href="#wingShape" transform="translate(400 0) scale(-1 1)"/></g>
+    <rect x="197" y="128" width="6" height="44" rx="3" fill="#ffffff"/>
+    <path d="M198 128 Q188 105 180 100 M202 128 Q212 105 220 100" stroke="#ffffff" stroke-width="1.5" fill="none"/>
+    ${cars}
+  </svg>`;
+}
+
+function splash() {
+  return `<section class="splash">
+    <div class="splash-inner">
+      ${butterflySVG()}
+      <h1 class="splash-title">Fella Ride</h1>
+      <p class="splash-sub">Turn a community of strangers into a network that moves together.</p>
+      <button class="btn splash-btn" data-act="enter">Enter the community</button>
+    </div>
+  </section>`;
+}
+
+function sidebar() {
+  const items = [
+    ['dashboard', '📊', 'Dashboard'], ['map', '🗺️', 'Live map'], ['members', '👥', 'Members'],
+    ['rides', '🚗', 'Rides'], ['airport', '✈️', 'Airport'], ['activation', '⚡', 'Activation'],
+    ['referrals', '🎁', 'Referrals'], ['join', '✨', 'Join / Profile'],
+  ];
+  const m = me();
+  return `<aside>
+    <div class="brand"><div class="logo">🦋</div>Fella Ride</div>
+    <div class="sub">Community activation · demo</div>
+    <nav>${items.map(([k, i, l]) =>
+      `<button class="nav-btn ${view === k ? 'on' : ''}" data-act="nav" data-view="${k}">${i}&nbsp; ${l}</button>`).join('')}
+    </nav>
+    <div class="me-card">
+      <div style="opacity:.8">Community</div>
+      <div style="font-weight:700;margin:4px 0 12px">${esc(state.tenant.name)}</div>
+      <div style="opacity:.8">You</div>
+      <div style="font-weight:700;margin:4px 0 14px">${m ? esc(m.name) : 'Not joined yet'}</div>
+    </div>
+  </aside>`;
+}
+
+function rewardsCard() {
+  const my = me();
+  if (!my) return note('Join the community to start your streak and rewards.');
+  const count = state.myRides.length;
+  const toNext = GIFT_EVERY - (count % GIFT_EVERY);
+  const pct = (count % GIFT_EVERY) / GIFT_EVERY * 100;
+  const cur = currentStreak();
+  return `<section class="card">
+    <h3>Your streak & rewards</h3>
+    <div class="row">
+      <div>
+        <div style="font-size:30px;font-weight:800;color:var(--dark)">🔥 ${cur} day${cur === 1 ? '' : 's'}</div>
+        <div class="muted">Best streak: ${state.streak.best} · Total rides: ${count}</div>
+      </div>
+      <button class="btn ghost" data-act="demoRide">Log demo ride</button>
+    </div>
+    <div class="frow"><span>Next free ride</span><b>${toNext} to go</b></div>
+    <div class="bar"><span style="width:${pct}%"></span></div>
+    <div class="muted" style="margin-top:12px">Free rides ready: <b style="color:var(--dark)">${state.freeCredits}</b></div>
+  </section>`;
+}
+
+function giftOverlay() {
+  const my = me();
+  const count = state.myRides.length;
+  const ready = Math.floor(count / GIFT_EVERY) > state.giftClaims;
+  let body;
+  if (!my) {
+    body = `<h2>Ride with us for rewards</h2><p>Join the community to start riding. Every 50th ride is free.</p>`;
+  } else if (ready) {
+    body = `<h2>Your 50th ride is free!</h2><p>Claim your free ride now.</p>
+      <button class="btn" data-act="claimGift">Claim free ride</button>`;
+  } else {
+    body = `<h2>Every 50th ride is free</h2><p>You're at ${count % GIFT_EVERY} of ${GIFT_EVERY}. Keep riding to unlock your next gift.</p>`;
+  }
+  return `<div class="gift-overlay">
+    <div class="gift-modal">
+      <div class="gift"><div class="body"></div><div class="ribbon"></div><div class="lid"></div><div class="bow"></div></div>
+      ${body}
+      <div><button class="btn ghost" style="margin-top:14px" data-act="closeGift">Yayy!</button></div>
+    </div>
+  </div>`;
+}
+
+function viewDashboard() {
+  const total = state.members.length;
+  const verified = state.members.filter(m => verification(m) === 'verified').length;
+  const matched = state.members.filter(m => matchesOf(m).length > 0).length;
+  const riding = state.members.filter(m => hasRide(m.id)).length;
+  const referrers = new Set(state.members.map(m => m.referredBy).filter(Boolean)).size;
+  const offered = state.rides.reduce((s, r) => s + r.seats, 0);
+  const taken = state.rides.reduce((s, r) => s + r.booked.length, 0);
+  const activation = total ? Math.round(riding / total * 100) : 0;
+  const fill = offered ? Math.round(taken / offered * 100) : 0;
+  const verifiedPct = total ? Math.round(verified / total * 100) : 0;
+  const funnel = [
+    ['Registered', total], ['Verified', verified], ['Matched', matched],
+    ['Riding or driving', riding], ['Referred someone', referrers],
+  ];
+  const top = state.members
+    .filter(m => ['Activate now', 'Nudge'].includes(tierOf(m)))
+    .sort((a, b) => scoreOf(b) - scoreOf(a))
+    .slice(0, 5);
+
+  return header('Dashboard', 'Live view of how the community is moving from sign-up to regular rides.') + `
+    <section class="card hero">
+      <div class="muted">Community code <b>${esc(state.tenant.code)}</b> · synthetic demo data</div>
+      <h2>${esc(state.tenant.name)}</h2>
+      <p style="margin:0">${riding} of ${total} members are riding or driving (${activation}% activated).</p>
+    </section>
+    <div class="cols stats" style="margin-top:16px">
+      ${statCard(total, 'Members')}
+      ${statCard(verifiedPct + '%', 'Fully verified')}
+      ${statCard(fill + '%', 'Seats filled')}
+      ${statCard(state.airport.pools.length, 'Airport pools')}
+    </div>
+    <div class="cols" style="margin-top:16px">
+      ${rewardsCard()}
+      <section class="card"><h3>Activation funnel</h3>
+        ${funnel.map(([l, v]) => {
+          const p = total ? Math.round(v / total * 100) : 0;
+          return `<div class="frow"><span>${l}</span><b>${v}</b></div><div class="bar"><span style="width:${p}%"></span></div>`;
+        }).join('')}
+      </section>
+    </div>
+    <div class="cols" style="margin-top:16px">
+      <section class="card"><h3>Top priorities</h3>
+        ${top.length ? top.map(m => `
+          <div class="row" style="margin-bottom:14px">
+            <div><b>${esc(m.name)}</b><div class="muted">${ROLE[m.role]} · ${esc(m.area)} · ${m.time}</div></div>
+            <div style="display:flex;gap:8px;align-items:center">${tierPill(tierOf(m))}<span class="pill">${scoreOf(m)}</span></div>
+          </div>`).join('')
+          : '<p class="muted">No priority members right now. Run the activation engine.</p>'}
+      </section>
+    </div>`;
+}
+
+function viewMap() {
+  return header('Live map', 'Follow rides moving toward campus and see seats open in real time.') + `
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn ghost" data-act="locate">Show my location</button>
+      <span class="muted">Ride positions are simulated for this demo.</span>
+    </div>
+    <div class="cols">
+      <section class="card" style="padding:10px"><div id="map"></div></section>
+      <section class="card"><h3>Live availability</h3><div id="avail"></div></section>
+    </div>`;
+}
+
+function mountMap() {
+  if (typeof L === 'undefined' || !document.getElementById('map')) {
+    const el = document.getElementById('map');
+    if (el) el.innerHTML = '<p class="muted" style="padding:20px">The map could not load. Check your internet connection and refresh.</p>';
+    return;
+  }
+  if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+  mapInstance = L.map('map').setView(CAMPUS, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(mapInstance);
+  rideLayer = L.layerGroup().addTo(mapInstance);
+  updateMap();
+  setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 80);
+}
+
+function updateMap() {
+  if (!mapInstance || !rideLayer) return;
+  rideLayer.clearLayers();
+  const m = me();
+
+  L.circleMarker(CAMPUS, { radius: 10, color: '#00595c', fillColor: '#ffffff', fillOpacity: 1, weight: 3 })
+    .bindPopup('<b>Campus</b>').addTo(rideLayer);
+
+  AREAS.forEach(a => {
+    const open = state.rides.filter(r => r.area === a && seatsLeft(r) > 0);
+    const seats = open.reduce((s, r) => s + seatsLeft(r), 0);
+    L.circleMarker(areaLL(a), { radius: 9, color: '#00595c', fillColor: '#0aa5ab', fillOpacity: .85, weight: 2 })
+      .bindPopup(`<b>${esc(a)}</b><br>${open.length} ride(s) · ${seats} seat(s) open`)
+      .addTo(rideLayer);
+  });
+
+  state.rides.forEach(r => {
+    const mine = r.booked.includes('me');
+    const color = r.pink ? '#e5488a' : mine ? '#00595c' : '#7fc9cb';
+    const pos = ridePos(r);
+    L.polyline([areaLL(r.area), CAMPUS], { color, weight: mine ? 4 : 2, dashArray: '6 6', opacity: .8 }).addTo(rideLayer);
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="car ${r.pink ? 'pink' : ''} ${mine ? 'mine' : ''}">🚗</div>`,
+      iconSize: [30, 30], iconAnchor: [15, 15],
+    });
+    const d = driverOf(r);
+    const left = seatsLeft(r);
+    L.marker(pos, { icon }).bindPopup(
+      `<b>${r.driverId === 'me' ? 'Your ride' : esc(d ? d.name : 'Driver')}</b><br>` +
+      `${esc(r.area)} · ${r.time}<br>` +
+      `ETA to campus: ${etaMin(r)} min<br>` +
+      `${left > 0 ? left + ' seat(s) left' : 'Full'}` +
+      (r.pink ? '<br>Pink ride, women only' : '')
+    ).addTo(rideLayer);
+  });
+
+  if (userLL) {
+    L.marker(userLL, { icon: L.divIcon({ className: '', html: '<div class="you-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) })
+      .bindPopup('You are here').addTo(rideLayer);
+  }
+
+  const el = document.getElementById('avail');
+  if (!el) return;
+  const myRide = m ? state.rides.find(r => r.booked.includes('me')) : null;
+  const myDriving = m ? state.rides.find(r => r.driverId === 'me') : null;
+  let html = '';
+  if (myRide) {
+    html += `<div class="code" style="margin:0 0 14px">
+      <b>Your ride</b><br>
+      Arrives at campus in about <b>${etaMin(myRide)} min</b><br>
+      From ${esc(myRide.area)} · pickup code <b>${pickupCode(myRide.id, 'me')}</b>
+    </div>`;
+  } else if (myDriving) {
+    html += `<div class="code" style="margin:0 0 14px">
+      <b>Your ride as driver</b><br>
+      Arrives at campus in about <b>${etaMin(myDriving)} min</b><br>
+      From ${esc(myDriving.area)} · ${seatsLeft(myDriving)} seat(s) left
+    </div>`;
+  }
+  html += AREAS.map(a => {
+    const open = state.rides.filter(r => r.area === a && seatsLeft(r) > 0);
+    const seats = open.reduce((s, r) => s + seatsLeft(r), 0);
+    return `<div class="avail-item row">
+      <div><b>${esc(a)}</b><div class="muted">${open.length} open ride(s)</div></div>
+      <span class="pill ${seats > 0 ? 'ok' : 'bad'}">${seats > 0 ? seats + ' seats' : 'Full'}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = html;
+}
+
+function viewMembers() {
+  const list = state.members.filter(m => filter === 'all' || tierOf(m) === filter);
+  const chips = FILTERS.map(f =>
+    `<button class="chip ${filter === f ? 'on' : ''}" data-act="filter" data-f="${f}">${f === 'all' ? 'All' : f}</button>`).join('');
+  const cards = list.map(m => {
+    const t = tierOf(m), s = scoreOf(m);
+    return `<section class="card">
+      <div class="row">
+        <div><b>${esc(m.name)}</b>${m.id === 'me' ? ' <span class="pill hot">You</span>' : ''}
+          <div class="muted">${ROLE[m.role]} · ${esc(m.area)} · ${m.time}</div></div>
+        ${tierPill(t)}
+      </div>
+      <div class="bar" style="margin:16px 0 10px"><span style="width:${s}%"></span></div>
+      <div class="row"><span class="muted">Priority score ${s}</span>${verifPill(m)}</div>
+      ${m.prefWomen ? '<div style="margin-top:10px"><span class="pill pink">Prefers women drivers</span></div>' : ''}
+      ${t !== 'Active' && m.id !== 'me'
+        ? `<button class="btn ghost" style="width:100%;margin-top:14px" data-act="nudge" data-id="${m.id}">Send nudge</button>`
+        : ''}
+    </section>`;
+  }).join('');
+  return header('Members', 'Everyone in this community, ranked by how ready they are to ride.') +
+    `<div class="chips">${chips}</div>` +
+    (cards ? `<div class="cols">${cards}</div>` : note('No members in this group.'));
+}
+
+function rideCard(r, m) {
+  const driver = driverOf(r);
+  const left = seatsLeft(r);
+  const mine = !!m && r.booked.includes(m.id);
+  let action = '';
+  if (m && m.id !== r.driverId && !mine && !canBookReason(m, r)) {
+    action = `<button class="btn" style="margin-top:12px" data-act="book" data-id="${r.id}">Request seat</button>`;
+  }
+  if (mine) {
+    action = `<div class="code">Your pickup code: <b>${pickupCode(r.id, m.id)}</b>
+      <div class="muted">Show this code to the driver to board.</div></div>`;
+  }
+  if (m && m.id === r.driverId) {
+    action += `<form class="checkin" data-form="checkin" data-id="${r.id}">
+      <input name="code" inputmode="numeric" maxlength="4" placeholder="Passenger code" required />
+      <button class="btn ghost" type="submit">Check in</button>
+    </form>`;
+  }
+  const pct = Math.round(r.booked.length / r.seats * 100);
+  return `<section class="card ${r.pink ? 'pinkride' : ''}">
+    <div class="row">
+      <div><b>${r.driverId === 'me' ? 'Your ride' : esc(driver ? driver.name : 'Driver')}</b>
+        <div class="muted">${esc(r.area)} · ${r.time}</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        ${r.pink ? '<span class="pill pink">Pink · women only</span>' : ''}
+        <span class="pill ${left > 0 ? 'ok' : 'bad'}">${left > 0 ? left + ' seats left' : 'Full'}</span>
+      </div>
+    </div>
+    <div class="bar" style="margin:16px 0 8px"><span style="width:${pct}%"></span></div>
+    <div class="muted">${r.booked.length} booked · ${r.checkedIn.length} checked in</div>
+    ${action}
+  </section>`;
+}
+
+function viewRides() {
+  const m = me();
+  let postBox = '';
+  if (!m) {
+    postBox = note('Join the community first to post or book rides.');
+  } else if (m.role === 'driver') {
+    const typeField = m.gender === 'Female'
+      ? `<label>Type<select name="type"><option value="standard">Standard</option><option value="pink">Pink (women only)</option></select></label>`
+      : '';
+    postBox = verification(m) === 'verified'
+      ? `<section class="card" style="margin-bottom:16px"><h3>Post a ride</h3>
+          <form class="cols" data-form="post" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end">
+            <label>Area<select name="area">${AREAS.map(a => `<option ${a === m.area ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+            <label>Departure<select name="time">${TIMES.map(t => `<option ${t === m.time ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+            <label>Seats<select name="seats">${[1, 2, 3, 4].map(n => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+            ${typeField}
+            <button class="btn" type="submit">Post ride</button>
+          </form></section>`
+      : note('Verify your phone and email on the Join page before posting a ride.');
+  } else if (verification(m) !== 'verified') {
+    postBox = note('Verify your phone and email on the Join page before booking a seat.');
+  }
+  const rides = state.rides.slice().reverse();
+  return header('Rides', 'Post rides, request seats, and check passengers in with their pickup code.') +
+    postBox +
+    (rides.length ? `<div class="cols">${rides.map(r => rideCard(r, m)).join('')}</div>` : note('No rides yet.'));
+}
+
+function viewAirport() {
+  const m = me();
+  const credit = state.freeCredits > 0
+    ? `<p class="pill ok" style="display:inline-block;margin:0 0 12px">🎁 ${state.freeCredits} free ride credit${state.freeCredits > 1 ? 's' : ''} ready</p>` : '';
+  const form = !m
+    ? note('Join the community first to request an airport ride.')
+    : `<section class="card" style="margin-bottom:16px"><h3>Request an airport ride</h3>
+        ${credit}
+        <form class="cols" data-form="airport" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end">
+          <label>Direction<select name="direction"><option value="to">To airport</option><option value="from">From airport</option></select></label>
+          <label>Flight time<select name="time">${AIR_TIMES.map(t => `<option>${t}</option>`).join('')}</select></label>
+          <button class="btn" type="submit">Find a pool</button>
+        </form>
+        <p class="muted" style="margin:14px 0 0">Fare is a demo of ₹${FARE}, split equally across the pool (up to 4 riders).</p>
+      </section>`;
+  const pools = state.airport.pools.map(p => {
+    const n = p.members.length;
+    const share = Math.round(FARE / n);
+    const names = p.members.map(id => id === 'me' ? 'You' : (byId(id) ? byId(id).name : 'Unknown')).join(', ');
+    let btn = '';
+    if (m && p.members.includes('me')) {
+      btn = `<button class="btn ghost" style="width:100%;margin-top:14px" data-act="leavePool">Leave pool</button>`;
+    } else if (m && n < 4 && !inAnyPool('me')) {
+      btn = `<button class="btn" style="width:100%;margin-top:14px" data-act="joinPool" data-id="${p.id}">Join this pool</button>`;
+    }
+    return `<section class="card">
+      <div class="row">
+        <div><b>${p.direction === 'to' ? 'To airport' : 'From airport'}</b>
+          <div class="muted">Around ${p.time} · ${n}/4 riders</div></div>
+        <span class="pill ok">₹${share} each</span>
+      </div>
+      <div class="bar" style="margin:16px 0 10px"><span style="width:${n * 25}%"></span></div>
+      <div class="muted">${esc(names)}</div>
+      ${btn}
+    </section>`;
+  }).join('');
+  return header('Airport rides', 'Share cabs to and from the airport with neighbours on similar flights, and split the fare.') +
+    form +
+    `<div class="cols">${pools || note('No airport pools yet. Create the first one.')}</div>`;
+}
+
+function viewActivation() {
+  const created = state.interventions.length;
+  const sent = state.interventions.filter(i => i.status !== 'draft').length;
+  const converted = state.interventions.filter(i => i.status === 'converted').length;
+  const rate = sent ? Math.round(converted / sent * 100) : 0;
+  const rows = state.interventions.slice().reverse().map(i => {
+    const m = byId(i.memberId);
+    const cls = i.status === 'converted' ? 'ok' : i.status === 'sent' ? 'warn' : '';
+    return `<section class="card irow">
+      <div><b>${esc(m ? m.name : 'Unknown')}</b> <span class="pill">${TYPE[i.type] || i.type}</span>
+        <div class="muted" style="margin-top:6px">${esc(i.message)}</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="pill ${cls}">${i.status}</span>
+        ${i.status === 'draft' ? `<button class="btn ghost" data-act="markSent" data-id="${i.id}">Mark sent</button>` : ''}
+      </div>
+    </section>`;
+  }).join('');
+  return header('Activation engine', 'Finds members close to riding, writes the next step for each, and tracks which nudges turn into rides.') +
+    `<div class="row" style="margin-bottom:18px"><button class="btn" data-act="generate">Run activation engine</button></div>` +
+    `<div class="cols stats" style="margin-bottom:18px">
+      ${statCard(created, 'Interventions')}${statCard(sent, 'Sent')}${statCard(converted, 'Became riders')}${statCard(rate + '%', 'Conversion')}
+    </div>` +
+    (rows || note('No interventions yet. Run the engine to create the first ones.'));
+}
+
+function viewReferrals() {
+  const m = me();
+  const title = header('Referrals', 'Invite neighbours and see who brings in the most people.');
+  if (!m) return title + note('Join the community first to get your referral code.');
+  const mine = state.members.filter(x => x.referredBy === 'me').length;
+  const board = state.members
+    .map(x => ({ x, c: state.members.filter(y => y.referredBy === x.id).length }))
+    .filter(r => r.c > 0)
+    .sort((a, b) => b.c - a.c)
+    .slice(0, 5);
+  return title + `
+    <div class="cols">
+      <section class="card hero">
+        <div class="muted">Your referral code</div>
+        <div class="big">${codeOf(m)}</div>
+        <p style="margin:0 0 16px">Neighbours who join with this code are linked to you. You have ${mine} so far.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn" data-act="copy">Copy code</button>
+          <button class="btn ghost" data-act="simulate">Simulate a neighbour joining</button>
+        </div>
+      </section>
+      <section class="card"><h3>Top referrers</h3>
+        ${board.length
+          ? board.map((r, i) => `<div class="row" style="margin-bottom:12px">
+              <span>${i + 1}. ${esc(r.x.name)}${r.x.id === 'me' ? ' (you)' : ''}</span>
+              <span class="pill ok">${r.c}</span></div>`).join('')
+          : '<p class="muted">No referrals yet. Share your code to start.</p>'}
+      </section>
+    </div>`;
+}
+
+function viewJoin() {
+  const m = me();
+  if (m) {
+    return header('Your profile', 'Verify your phone and email to unlock posting, booking, and airport pools.') + `
+      <div class="cols">
+        <section class="card">
+          <h3>${esc(m.name)}</h3>
+          <div class="muted">${ROLE[m.role]} · ${esc(m.area)} · ${m.time}</div>
+          <p style="margin:14px 0">${esc(m.bio)}</p>
+          <div class="muted">Age ${m.age ?? '-'} · ${esc(m.gender)} · Referral code <b>${codeOf(m)}</b></div>
+          ${m.prefWomen ? '<div style="margin-top:12px"><span class="pill pink">Prefers women drivers</span></div>' : ''}
+        </section>
+        <section class="card">
+          <h3>Verification</h3>
+          <div class="row" style="margin-bottom:14px"><span>Phone</span>
+            ${m.phoneVerified ? '<span class="pill ok">Verified</span>'
+              : '<button class="btn ghost" data-act="verify" data-kind="phone">Verify phone</button>'}</div>
+          <div class="row"><span>Email</span>
+            ${m.emailVerified ? '<span class="pill ok">Verified</span>'
+              : '<button class="btn ghost" data-act="verify" data-kind="email">Verify email</button>'}</div>
+          <p class="muted" style="margin-top:18px">Status: ${verifPill(m)} Riding requires both.</p>
+        </section>
+      </div>`;
+  }
+  return header('Join your community', 'Create your profile. Your area and usual time are used to match you with neighbours.') + `
+    <section class="card" style="max-width:640px">
+      <form class="form" data-form="join">
+        <label>Full name<input name="name" required maxlength="40" /></label>
+        <label>Community code<input name="code" required placeholder="RIVER26" /></label>
+        <label>Role<select name="role">${Object.entries(ROLE).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+        <label>Home area<select name="area">${AREAS.map(a => `<option>${a}</option>`).join('')}</select></label>
+        <label>Usual departure<select name="time">${TIMES.map(t => `<option ${t === '08:00' ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label>Age<input name="age" type="number" min="18" max="80" value="21" /></label>
+        <label>Gender<select name="gender">
+          <option>Female</option><option>Male</option><option>Non-binary</option><option>Prefer not to say</option>
+        </select></label>
+        <label class="check"><input type="checkbox" name="prefWomen" /> I prefer women drivers (women only; pink rides)</label>
+        <label>Bio<textarea name="bio" rows="3" maxlength="160"></textarea></label>
+        <label>Referral code (optional)<input name="referral" placeholder="FR-M0" /></label>
+        <button class="btn" type="submit">Join community</button>
+      </form>
+    </section>`;
+}
+
+const views = {
+  dashboard: viewDashboard, map: viewMap, members: viewMembers, rides: viewRides, airport: viewAirport,
+  activation: viewActivation, referrals: viewReferrals, join: viewJoin,
+};
+
+function render() {
+  const app = document.getElementById('app');
+  try {
+    app.classList.toggle('splash-mode', showSplash);
+    if (showSplash) {
+      if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+      app.innerHTML = splash();
+      return;
+    }
+    app.innerHTML =
+      sidebar() +
+      `<main>${views[view]()}</main>` +
+      (view === 'dashboard' && giftOpen ? giftOverlay() : '') +
+      (toastMsg ? `<div class="toast">${esc(toastMsg)}</div>` : '');
+    if (view === 'map') mountMap();
+    else if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+  } catch (err) {
+    app.innerHTML = '<div class="errbox">Something went wrong while drawing the page:\n' + esc(err && err.stack || err) + '</div>';
+  }
+}
+
+setInterval(() => {
+  if (!showSplash && view === 'map' && mapInstance) updateMap();
+}, 3000);
+
+window.addEventListener('storage', e => {
+  if (e.key !== KEY) return;
+  const s = load();
+  if (s) { state = s; render(); }
+});
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const a = el.dataset.act;
+  if (a === 'enter') { showSplash = false; giftOpen = true; }
+  else if (a === 'nav') { view = el.dataset.view; giftOpen = view === 'dashboard'; }
+  else if (a === 'filter') filter = el.dataset.f;
+  else if (a === 'nudge') nudge(el.dataset.id);
+  else if (a === 'markSent') markSent(el.dataset.id);
+  else if (a === 'generate') {
+    const n = generateInterventions();
+    flash(n ? n + ' new intervention(s) created.' : 'Nobody new needs an intervention right now.');
+  }
+  else if (a === 'verify') verify(el.dataset.kind);
+  else if (a === 'book') bookRide(el.dataset.id);
+  else if (a === 'copy') copyCode();
+  else if (a === 'simulate') simulateReferral();
+  else if (a === 'demoRide') demoRide();
+  else if (a === 'claimGift') claimGift();
+  else if (a === 'closeGift') giftOpen = false;
+  else if (a === 'joinPool') joinPool(el.dataset.id);
+  else if (a === 'leavePool') leavePool();
+  else if (a === 'locate') {
+    if (!navigator.geolocation) return flash('Location is not available on this device.');
+    navigator.geolocation.getCurrentPosition(
+      p => { userLL = [p.coords.latitude, p.coords.longitude]; flash('Your location is on the map.'); },
+      () => flash('Location permission was not allowed.')
+    );
+  }
+  commit();
+});
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target;
+  const fd = new FormData(f);
+  const k = f.dataset.form;
+  if (k === 'join') joinCommunity(fd);
+  else if (k === 'post') postRide(fd);
+  else if (k === 'checkin') checkIn(f.dataset.id, fd.get('code'));
+  else if (k === 'airport') requestAirport(fd);
+  commit();
+});
+
+render();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
