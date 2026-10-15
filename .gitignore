@@ -1,0 +1,6 @@
+.env
+data.json
+node_modules/
+dist/
+backend/data.json
+backend/data.json.tmp

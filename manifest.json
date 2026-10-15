@@ -1,7 +1,7 @@
 {
   "name": "Fella Ride",
   "short_name": "Fella Ride",
-  "start_url": "./",
+  "start_url": "./indexx.html",
   "display": "standalone",
   "background_color": "#00595c",
   "theme_color": "#00797d",
