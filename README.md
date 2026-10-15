@@ -1,17 +1,102 @@
-# Fella Ride
 
-The frontend is hosted on Vercel at <https://fellaa.vercel.app>. Its API is hosted on Render at <https://fellafly.onrender.com> and stores app data in PostgreSQL.
+## Setup
 
-## Render backend
+### 1. Firebase
+1. Create a project at console.firebase.google.com.
+2. Enable **Authentication → Phone**.
+3. Add test phone numbers under **Phone numbers for testing**.
+4. Add your Vercel domain under **Authorized domains**.
+5. Copy the web config values into `index.html`.
+6. Download a **service account key** (Project settings → Service accounts).
 
-The backend service should use the `backend` root directory, `npm install` as its build command, and `npm start` as its start command. Choose Render's Free instance plan if available.
+### 2. Database
+1. Create a Supabase project.
+2. Copy the **Session pooler** connection string with your database password.
 
-Set `DATABASE_URL` to the PostgreSQL connection string from Supabase **Project Settings → Database → Connection string**. Keep this value private. The backend creates its tables on startup; Render logs should show `database ready`. The root endpoint should display `Fella Ride API is running.`.
+### 3. Backend (Render)
+1. Create a web service from the `backend` folder.
+2. Build command: `npm install`. Start command: `npm start`.
+3. Set environment variables:
 
-For email OTP delivery, configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, and `SMTP_PASS` in Render. Without SMTP configuration, users can still use guest access.
+| Key | Value |
+|---|---|
+| `DATABASE_URL` | Supabase connection string |
+| `FIREBASE_SERVICE_ACCOUNT` | Full service account JSON |
+| `DEV_MODE` | `true` (optional, for testing) |
 
-## Vercel frontend
+### 4. Frontend (Vercel)
+1. Import the `frontend` folder as a project.
+2. Set `const API` in `index.html` to your Render URL, with no trailing slash.
 
-The frontend's API URL is configured in `indexx.html`. The production app is at <https://fellaa.vercel.app>. Pushes to `main` deploy the frontend automatically.
+### 5. Run locally
+```bash
+cd backend
+npm install
+npm start
+```
+Open `frontend/index.html` in a browser, or use any static server.
 
-The app includes guest access as well as optional email OTP login. Do not commit database or SMTP credentials.
+## Configuration
+
+| Setting | Where | Default |
+|---|---|---|
+| Fare tariff | `server.js`, `TARIFF` | auto 30 + 15/km, cab 100 + 14/km, shared 20 + 6/km, minimum ₹20 |
+| CO₂ factor | `server.js` | 0.12 kg per km (assumption, see limitations) |
+| Live location duration | `server.js` | 15 minutes |
+| Points per trip | `server.js` | 5 |
+
+## API overview
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/guest` | Create a guest session |
+| POST | `/api/firebase/login` | Verify Firebase login |
+| GET | `/api/me` | Current user profile |
+| GET | `/api/communities` | List communities |
+| POST | `/api/communities` | Create a community |
+| POST | `/api/communities/:id/join` | Join with a code |
+| POST | `/api/communities/:id/rides` | Post a ride (drivers) |
+| POST | `/api/rides/:id/book` | Book a seat |
+| POST | `/api/trips` | Book a trip (matches or creates a shared ride) |
+| GET | `/api/fare` | Distance and fare comparison |
+| POST | `/api/ratings` | Rate a co-rider |
+| GET | `/api/events` | Live updates (SSE) |
+| POST | `/api/location` | Share live location |
+
+## Assumed limitations
+
+These are known limits of the current version. Mention them honestly during the demo.
+
+1. **Fares are estimates.** They use a simple formula, not live Uber, Ola or metered auto prices. No public API provides those.
+2. **CO₂ figure is an assumption.** 0.12 kg per km is a demo factor. Replace it with an official emission factor before presenting it as fact.
+3. **Ride positions on the map are simulated** from departure times. Only shared member locations are real, and they depend on the member's device.
+4. **No payments.** Riders do not pay through the app. Fares are shown for comparison only.
+5. **No driver licence or vehicle checks.** Drivers are not verified beyond phone login.
+6. **No emergency or SOS feature** yet.
+7. **No email or push notifications.** Alerts appear only inside the app while it is open.
+8. **Free hosting limits.** Render sleeps after inactivity and can take about a minute to wake. Supabase free projects pause after a period of no use.
+9. **Data is kept on free services.** Backups are not configured.
+10. **Guest accounts** are tied to the browser. Clearing browser data starts a new account.
+11. **Road distance** depends on the public OSRM demo server, which may be slow or rate-limited. The app falls back to a straight-line estimate.
+12. **Location accuracy** depends on the device and browser permission.
+13. **Phone login** uses Firebase test numbers during the demo. Real SMS needs Firebase billing and region limits to be checked.
+14. **Privacy:** before real users join, add a privacy policy and a data deletion process.
+15. **No automated tests.** Features were checked by hand.
+16. **Not a licensed transport service.** Check state rules for shared fares before charging riders.
+
+## Roadmap
+
+- Payments and receipts
+- Driver licence and vehicle verification
+- SOS with trusted contacts
+- Push notifications
+- Real GPS tracking for drivers
+- Official emission factors per vehicle type
+
+## Licence
+
+Add your chosen licence here, for example MIT.
+
+## Team
+
+Your name and team members.
