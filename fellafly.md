@@ -45,23 +45,6 @@ Open `frontend/index.html` in a browser, or use any static server.
 | Live location duration | `server.js` | 15 minutes |
 | Points per trip | `server.js` | 5 |
 
-## API overview
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| POST | `/api/guest` | Create a guest session |
-| POST | `/api/firebase/login` | Verify Firebase login |
-| GET | `/api/me` | Current user profile |
-| GET | `/api/communities` | List communities |
-| POST | `/api/communities` | Create a community |
-| POST | `/api/communities/:id/join` | Join with a code |
-| POST | `/api/communities/:id/rides` | Post a ride (drivers) |
-| POST | `/api/rides/:id/book` | Book a seat |
-| POST | `/api/trips` | Book a trip (matches or creates a shared ride) |
-| GET | `/api/fare` | Distance and fare comparison |
-| POST | `/api/ratings` | Rate a co-rider |
-| GET | `/api/events` | Live updates (SSE) |
-| POST | `/api/location` | Share live location |
 
 ## Assumed limitations
 
