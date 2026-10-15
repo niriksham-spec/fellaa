@@ -1,4 +1,11 @@
 .env
+backend/.env*
+backend/sec.env
+.firebase/
+firebase-debug.log
+firestore-debug.log
+*-firebase-adminsdk-*.json
+service-account*.json
 data.json
 node_modules/
 dist/

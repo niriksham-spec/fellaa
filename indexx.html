@@ -127,9 +127,14 @@ window.addEventListener('error', e => {
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="extras.js"></script>
 <script>
 // ---------- Setup ----------
-const API = 'https://fellafly.onrender.com';
+const API = window.FELLA_API_URL || (
+  location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? ''
+    : 'https://us-central1-fellaride-982b2.cloudfunctions.net/fellaRideApi'
+);
 const AREAS = ['North Gate', 'Tech Park', 'Old Town', 'Lake Side', 'Station Road'];
 const DESTS = ['Campus', 'Airport', 'Railway Station', 'Bus Stand'];
 const TIMES = ['07:30', '08:00', '08:30', '09:00', '17:30', '18:00'];
@@ -147,14 +152,16 @@ let activeId = localStorage.getItem('fr-active');
 let me = null, communities = [], trips = [], referrals = [], streakDays = [], detail = null;
 let pending = [], rep = null;
 let booting = !!token;
-let view = 'dashboard', showSplash = true;
-let authMode = 'login', authStep = 'email', pendingLogin = null, devCode = '';
+let view = 'dashboard', showSplash = false;
+let authMode = 'login';
 let giftDismissed = false, flipped = {}, toastMsg = '', toastTimer = null, fares = {};
+let firebaseClientPromise = null;
 let tripDraft = { from: 'Tech Park', to: 'Campus', time: '08:00', credit: false };
 let airDraft = { dir: 'to', area: 'North Gate', time: '06:00', credit: false };
 let mapInstance = null, rideLayer = null, userLL = null, myLoc = null;
 let sharing = localStorage.getItem('fr-sharing') === '1', locTimer = null;
 let es = null, connectedFor = null, syncTimer = null, liveOn = false;
+let eventReconnectTimer = null;
 
 // ---------- Small helpers ----------
 const opts = (sel, list) => list.map(v => `<option ${v === sel ? 'selected' : ''}>${esc(v)}</option>`).join('');
@@ -182,6 +189,17 @@ function starsHtml(avg, big) {
 
 // ---------- Server connection ----------
 async function api(path, body, method) {
+  if (token && localStorage.getItem('fr-auth-type') === 'firebase') {
+    const { auth } = await firebaseClient();
+    await auth.authStateReady();
+    if (!auth.currentUser) {
+      const error = new Error('Please log in again.');
+      error.status = 401;
+      throw error;
+    }
+    token = await auth.currentUser.getIdToken();
+    localStorage.setItem('fr-token', token);
+  }
   const headers = { 'Content-Type': 'application/json', 'X-Day': dayKey() };
   if (token) headers.Authorization = 'Bearer ' + token;
   let res;
@@ -193,6 +211,29 @@ async function api(path, body, method) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { const err = new Error(data.error || 'Something went wrong.'); err.status = res.status; throw err; }
   return data;
+}
+
+async function firebaseClient() {
+  if (!firebaseClientPromise) {
+    firebaseClientPromise = (async () => {
+      const response = await fetch(API + '/api/firebase-config');
+      const config = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(config.error || 'Could not load Firebase configuration.');
+      const version = '13.0.0';
+      const [appSdk, authSdk] = await Promise.all([
+        import(`https://www.gstatic.com/firebasejs/${version}/firebase-app.js`),
+        import(`https://www.gstatic.com/firebasejs/${version}/firebase-auth.js`),
+      ]);
+      const app = appSdk.getApps().length ? appSdk.getApp() : appSdk.initializeApp(config);
+      const auth = authSdk.getAuth(app);
+      await auth.authStateReady();
+      return { auth, authSdk };
+    })().catch(error => {
+      firebaseClientPromise = null;
+      throw error;
+    });
+  }
+  return firebaseClientPromise;
 }
 
 // Reload everything this screen needs from the server
@@ -208,11 +249,12 @@ async function refresh(quiet) {
     rep = await api('/api/reputation/me');
     if (!communities.some(c => c.id === activeId)) activeId = ((communities.find(c => c.joined) || communities[0]) || {}).id || null;
     if (activeId) { localStorage.setItem('fr-active', activeId); detail = await api('/api/communities/' + activeId); } else detail = null;
-    if (connectedFor !== activeId) connectEvents();
+    if (connectedFor !== activeId) await connectEvents();
     if (sharing && !locTimer) resumeSharing();
   } catch (e) {
     if (e.status === 401) {
       token = null; me = null; localStorage.removeItem('fr-token');
+      localStorage.removeItem('fr-auth-type');
       if (es) { es.close(); es = null; connectedFor = null; }
     } else if (!quiet) flash(e.message);
   }
@@ -241,51 +283,85 @@ function fareFor(from, to) {
   return fares[k] && fares[k] !== 'loading' ? fares[k] : null;
 }
 
-// ---------- Login: email code, or guest ----------
-async function requestCode(fd) {
-  pendingLogin = {
-    mode: authMode,
-    email: String(fd.get('email') || '').trim().toLowerCase(),
-    name: fd.get('name') || '',
-    gender: fd.get('gender') || '',
-    referral: fd.get('referral') || '',
+// ---------- Firebase email/password login ----------
+async function firebaseAuthError(error) {
+  const messages = {
+    'auth/email-already-in-use': 'An account with this email already exists. Log in instead.',
+    'auth/invalid-credential': 'Email or password is incorrect.',
+    'auth/invalid-email': 'Enter a valid email address.',
+    'auth/too-many-requests': 'Too many attempts. Please wait and try again.',
+    'auth/weak-password': 'Use a password with at least 6 characters.',
+    'auth/user-disabled': 'This account has been disabled.',
   };
-  await sendPending();
+  return messages[error.code] || error.message || 'Could not sign in. Please try again.';
 }
-async function sendPending() {
+async function firebaseSignIn(fd) {
+  let auth, authSdk, credential;
   try {
-    const r = await api('/api/auth/request-otp', pendingLogin);
-    authStep = 'code';
-    devCode = r.devCode || '';
-    flash('We sent a 6-digit code to ' + pendingLogin.email + '. Check your inbox and spam folder.');
-  } catch (e) { flash(e.message); }
-}
-async function verifyCode(fd) {
-  try {
-    const d = await api('/api/auth/verify', { email: pendingLogin.email, code: String(fd.get('code') || '').trim() });
-    token = d.token;
+    ({ auth, authSdk } = await firebaseClient());
+    const email = String(fd.get('email') || '').trim().toLowerCase();
+    const password = String(fd.get('password') || '');
+    const signup = authMode === 'signup';
+    if (signup && password !== String(fd.get('confirmPassword') || '')) {
+      throw new Error('Your passwords do not match.');
+    }
+    if (signup) {
+      await api('/api/referrals/validate', { referral: fd.get('referral') });
+      credential = await authSdk.createUserWithEmailAndPassword(auth, email, password);
+      await authSdk.updateProfile(credential.user, { displayName: String(fd.get('name') || '').trim() });
+    } else {
+      credential = await authSdk.signInWithEmailAndPassword(auth, email, password);
+    }
+    token = await credential.user.getIdToken(true);
     localStorage.setItem('fr-token', token);
-    authStep = 'email'; devCode = ''; giftDismissed = false;
+    localStorage.setItem('fr-auth-type', 'firebase');
+    const data = await api('/api/signin', {
+      idToken: token,
+      ...(signup ? {
+      mode: 'signup',
+      name: String(fd.get('name') || '').trim(),
+      gender: fd.get('gender'),
+      referral: fd.get('referral'),
+      } : {}),
+    });
+    token = data.token;
+    localStorage.setItem('fr-token', token);
+    giftDismissed = false;
     await refresh(true);
-    flash('Welcome, ' + d.user.name + '!');
-  } catch (e) { flash(e.message); }
+    flash('Welcome, ' + data.user.name + '!');
+  } catch (error) {
+    if (credential) await authSdk.signOut(auth);
+    token = null;
+    localStorage.removeItem('fr-token');
+    localStorage.removeItem('fr-auth-type');
+    flash(error.code ? await firebaseAuthError(error) : error.message);
+  }
 }
 async function doGuest() {
   try {
     const d = await api('/api/guest', {});
     token = d.token;
     localStorage.setItem('fr-token', token);
+    localStorage.removeItem('fr-auth-type');
     giftDismissed = false;
     await refresh(true);
     flash('Browsing as guest. Create an account to keep your data for next time.');
   } catch (e) { flash(e.message); }
 }
 async function doLogout() {
-  try { if (sharing) await stopSharing(true); await api('/api/logout', {}); } catch (e) { /* ignore */ }
+  try {
+    if (sharing) await stopSharing(true);
+    await api('/api/logout', {});
+    if (localStorage.getItem('fr-auth-type') === 'firebase') {
+      const { auth, authSdk } = await firebaseClient();
+      await authSdk.signOut(auth);
+    }
+  } catch (e) { /* ignore */ }
   token = null; me = null; detail = null; communities = []; pending = []; rep = null;
   if (es) { es.close(); es = null; }
   connectedFor = null;
   localStorage.removeItem('fr-token');
+  localStorage.removeItem('fr-auth-type');
   render();
 }
 
@@ -295,13 +371,27 @@ function setLive(on) {
   const el = document.getElementById('live');
   if (el) { el.textContent = on ? '● Live' : '○ Reconnecting…'; el.style.color = on ? '#0d8f74' : '#b77900'; }
 }
-function connectEvents() {
+async function connectEvents() {
   if (es) { es.close(); es = null; }
   connectedFor = activeId;
   if (!token || !activeId) return;
+  if (localStorage.getItem('fr-auth-type') === 'firebase') {
+    const { auth } = await firebaseClient();
+    if (!auth.currentUser) return;
+    token = await auth.currentUser.getIdToken();
+    localStorage.setItem('fr-token', token);
+  }
   es = new EventSource(`${API}/api/events?token=${encodeURIComponent(token)}&community=${encodeURIComponent(activeId)}`);
   es.onopen = () => setLive(true);
-  es.onerror = () => setLive(false);
+  es.onerror = () => {
+    setLive(false);
+    if (localStorage.getItem('fr-auth-type') === 'firebase') {
+      es.close();
+      es = null;
+      clearTimeout(eventReconnectTimer);
+      eventReconnectTimer = setTimeout(() => connectEvents(), 5000);
+    }
+  };
   es.onmessage = e => {
     let kind = 'changed';
     try { kind = JSON.parse(e.data).type || 'changed'; } catch (x) { /* keep default */ }
@@ -397,34 +487,25 @@ function splash() {
 
 function authView() {
   const login = authMode === 'login';
-  let form;
-  if (authStep === 'code') {
-    form = `<p class="muted" style="text-align:center">Enter the 6-digit code sent to <b>${esc(pendingLogin.email)}</b>. It expires in 10 minutes.</p>
-      ${devCode ? `<p class="pill warn" style="display:block;text-align:center">Test code: ${esc(devCode)}</p>` : ''}
-      <form class="form" data-form="otp-verify">
-        <label>Login code<input name="code" inputmode="numeric" maxlength="6" required placeholder="123456" style="font-size:22px;letter-spacing:6px;text-align:center"/></label>
-        <button class="btn" type="submit">Verify and continue</button>
-      </form>
-      <button class="btn ghost" style="width:100%;margin-top:10px" data-act="resend">Resend code</button>
-      <button class="btn ghost" style="width:100%;margin-top:8px" data-act="changeEmail">Use a different email</button>`;
-  } else {
-    form = `<form class="form" data-form="otp-request">
-      ${login ? '' : `<label>Full name<input name="name" required maxlength="40"/></label>
-        <label>Gender<select name="gender" required><option value="">Select</option>${opts('', GENDERS)}</select></label>
-        <label>Referral code (optional)<input name="referral" maxlength="12" placeholder="e.g. FR1A2B3C"/></label>`}
-      <label>Email<input name="email" type="email" required/></label>
-      <button class="btn" type="submit">Send login code</button>
-    </form>`;
-  }
+  const form = `<form class="form" data-form="firebase-auth">
+    ${login ? '' : `<label>Full name<input name="name" required maxlength="40"/></label>
+      <label>Gender<select name="gender" required><option value="">Select</option>${opts('', GENDERS)}</select></label>
+      <label>Referral code (optional)<input name="referral" maxlength="12" placeholder="e.g. FR1A2B3C"/></label>`}
+    <label>Email<input name="email" type="email" autocomplete="email" required/></label>
+    <label>Password<input name="password" type="password" autocomplete="${login ? 'current-password' : 'new-password'}" minlength="6" required/></label>
+    ${login ? '' : '<label>Confirm password<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required/></label>'}
+    <button class="btn" type="submit">${login ? 'Log in' : 'Create account'}</button>
+  </form>`;
   return `<div class="auth-wrap"><section class="card auth-card">
     ${brandHtml()}
-    <p class="muted" style="text-align:center;margin:0 0 18px">No password needed. We email you a code each time you log in.</p>
+    <p class="muted" style="text-align:center;margin:0 0 18px">Sign in securely with your email and password.</p>
     <div class="chips" style="justify-content:center">
       <button class="chip ${login ? 'on' : ''}" data-act="authMode" data-mode="login">Log in</button>
       <button class="chip ${!login ? 'on' : ''}" data-act="authMode" data-mode="signup">Create account</button>
     </div>
     ${form}
-    ${authStep === 'code' ? '' : '<p class="muted" style="margin:18px 0 8px;text-align:center">or</p><button class="btn ghost" style="width:100%" data-act="guest">Continue as guest</button>'}
+    <p class="muted" style="margin:18px 0 8px;text-align:center">or</p>
+    <button class="btn ghost" style="width:100%" data-act="guest">Continue as guest</button>
   </section></div>`;
 }
 
@@ -875,9 +956,7 @@ document.addEventListener('click', e => {
   if (!el) return;
   const a = el.dataset.act, id = el.dataset.id;
   if (a === 'enter') { showSplash = false; return render(); }
-  if (a === 'authMode') { authMode = el.dataset.mode; authStep = 'email'; devCode = ''; return render(); }
-  if (a === 'resend') { if (pendingLogin) sendPending(); return; }
-  if (a === 'changeEmail') { authStep = 'email'; devCode = ''; return render(); }
+  if (a === 'authMode') { authMode = el.dataset.mode; return render(); }
   if (a === 'guest') return doGuest();
   if (a === 'logout') return doLogout();
   if (a === 'nav') { view = el.dataset.view; giftDismissed = false; render(); return refresh(true); }
@@ -900,8 +979,7 @@ document.addEventListener('click', e => {
 document.addEventListener('submit', e => {
   e.preventDefault();
   const f = e.target, fd = new FormData(f), k = f.dataset.form;
-  if (k === 'otp-request') return requestCode(fd);
-  if (k === 'otp-verify') return verifyCode(fd);
+  if (k === 'firebase-auth') return firebaseSignIn(fd);
   if (k === 'profile') return act(() => api('/api/profile', { gender: fd.get('gender'), prefWomen: fd.get('prefWomen') === 'on' }, 'PUT'), 'Profile saved.');
   if (k === 'join') return act(() => api(`/api/communities/${activeId}/join`, { code: fd.get('code'), role: fd.get('role'), area: fd.get('area'), time: fd.get('time') }), 'Joined. Welcome!');
   if (k === 'post') return act(() => api(`/api/communities/${activeId}/rides`, { area: fd.get('area'), dest: fd.get('dest'), time: fd.get('time'), seats: Number(fd.get('seats')), pink: fd.get('type') === 'pink' }), 'Ride posted.');

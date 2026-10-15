@@ -2,7 +2,7 @@
   "name": "fella-ride-api",
   "version": "4.0.0",
   "private": true,
-  "description": "Shared public community and ride state for Fella Ride",
+  "description": "Firebase Firestore-backed API for Fella Ride",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,8 +12,11 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^18.0.8",
     "express": "^4.19.2",
-    "nodemailer": "^6.9.13",
-    "pg": "^8.11.5"
+    "firebase": "^13.0.0",
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^7.4.0",
+    "nodemailer": "^6.9.13"
   }
 }

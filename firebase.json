@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "source": "backend",
+    "runtime": "nodejs20",
+    "ignore": [
+      "node_modules",
+      ".git",
+      ".firebase",
+      "*.log",
+      ".env.local",
+      "sec.env"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
