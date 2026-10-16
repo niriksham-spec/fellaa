@@ -133,7 +133,7 @@ function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;
 const API = window.FELLA_API_URL || (
   location.hostname === 'localhost' || location.hostname === '127.0.0.1'
     ? ''
-    : 'https://us-central1-fellaride-982b2.cloudfunctions.net/fellaRideApi'
+    : location.origin
 );
 const AREAS = ['North Gate', 'Tech Park', 'Old Town', 'Lake Side', 'Station Road'];
 const DESTS = ['Campus', 'Airport', 'Railway Station', 'Bus Stand'];

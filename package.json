@@ -6,7 +6,10 @@
   "engines": { "node": ">=20" },
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^18.0.8",
     "express": "^4.19.2",
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^7.4.0",
     "nodemailer": "^6.9.13",
     "pg": "^8.11.5"
   }

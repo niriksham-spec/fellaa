@@ -1130,7 +1130,11 @@ app.use((req, res) => res.status(404).json({ error: 'Not found.' }));
 
 ready = init();
 if (!LOCAL_SERVER) ready.catch(error => console.error('Firebase setup failed:', error.message));
-exports.fellaRideApi = onRequest({ region: 'us-central1', timeoutSeconds: 120 }, app);
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  exports.fellaRideApi = onRequest({ region: 'us-central1', timeoutSeconds: 120 }, app);
+}
 
 if (LOCAL_SERVER) {
   ready
